@@ -6,7 +6,7 @@ import logging
 import sys
 
 from dotenv import load_dotenv
-from homework_bot import exceptions
+import exceptions
 
 
 load_dotenv()
