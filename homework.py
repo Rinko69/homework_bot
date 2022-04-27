@@ -4,6 +4,7 @@ import telegram
 import requests
 import logging
 import sys
+import homework
 
 from dotenv import load_dotenv
 import exceptions
@@ -57,21 +58,29 @@ def get_api_answer(current_timestamp):
 
 def check_response(response):
     """Проверка ответа сайта."""
-    if not response['homeworks']:
-        error = f'Отсутствует ключ homeworks в ответе: {response}'
-        exceptions.CheckKeyHomeworksException(error)
-    homework = response['homeworks']
-    if not homework:
-        error = f'Список {homework[0]} пуст'
+    #print(response)
+    if not isinstance(response, dict):
+        raise TypeError('Тип не словарь.')
+    homeworks = response['homeworks']
+    #print(homeworks)
+    if not 'homeworks' in response:
+        raise KeyError('Ключ не найден.')
+    if not isinstance(homeworks, list):
+        raise TypeError('Тип не список.')
+    homework = homeworks()
+    if not isinstance(homework, dict):
+        raise TypeError('Тип не словарь.')
+    if not homework in homeworks:
+        raise KeyError('Ключ не найден.')
+    if not homeworks:
+        error = f'Список {homeworks[0]} пуст'
         raise exceptions.EmptyValueException(error)
     logging.info('Status of homework update')
-    return homework[0]
+    return homeworks[0]
 
 
 def parse_status(homework):
     """Проверка статуса домашней работы."""
-    if not isinstance(homework, dict):
-        raise TypeError('Тип не словарь')
     homework_name = homework['homework_name']
     homework_status = homework['status']
     if homework_status not in HOMEWORK_STATUSES:
@@ -116,7 +125,7 @@ def check_tokens():
 def main():
     """Основная логика работы бота."""
     if not check_tokens():
-        error = 'Необходимые перменные отсутствуют.'
+        error = 'Необходимые переменные отсутствуют.'
         logging.error(error, exc_info=True)
         sys.exit()
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
@@ -124,27 +133,17 @@ def main():
     status = ''
     while True:
         try:
-            response = get_api_answer(current_timestamp)
-        except Exception as error:
-            message = f'Сбой в работе программы: {error}'
-            logging.error(f'Ошибка при запросе к основному API: {error}')
-            time.sleep(RETRY_TIME)
-            continue
-        try:
-            if check_response(response):
-                homework = check_response(response)
-                message = parse_status(homework)
-                if message != status:
-                    send_message(bot, message)
-                    status = message
+            api_answer = get_api_answer(current_timestamp)
+            homework = check_response(api_answer)
+            message = parse_status(homework)
+            if message != status:
+                send_message(bot, message)
+                status = message
             current_timestamp = current_timestamp
             time.sleep(RETRY_TIME)
         except Exception as error:
             message = f'Сбой в работе программы: {error}'
-            if message != status:
-                send_message(bot, message)
-                status = message
-            logging.error(error, exc_info=True)
+            logging.error(f'Ошибка при запросе к основному API: {error}')
             time.sleep(RETRY_TIME)
         finally:
             time.sleep(RETRY_TIME)
