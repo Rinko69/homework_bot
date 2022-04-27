@@ -4,7 +4,6 @@ import telegram
 import requests
 import logging
 import sys
-import homework
 
 from dotenv import load_dotenv
 import exceptions
@@ -58,25 +57,18 @@ def get_api_answer(current_timestamp):
 
 def check_response(response):
     """Проверка ответа сайта."""
-    #print(response)
     if not isinstance(response, dict):
         raise TypeError('Тип не словарь.')
     homeworks = response['homeworks']
-    #print(homeworks)
-    if not 'homeworks' in response:
+    if 'homeworks' not in response:
         raise KeyError('Ключ не найден.')
     if not isinstance(homeworks, list):
         raise TypeError('Тип не список.')
-    homework = homeworks()
-    if not isinstance(homework, dict):
-        raise TypeError('Тип не словарь.')
-    if not homework in homeworks:
-        raise KeyError('Ключ не найден.')
     if not homeworks:
         error = f'Список {homeworks[0]} пуст'
         raise exceptions.EmptyValueException(error)
     logging.info('Status of homework update')
-    return homeworks[0]
+    return homeworks
 
 
 def parse_status(homework):
@@ -133,8 +125,8 @@ def main():
     status = ''
     while True:
         try:
-            api_answer = get_api_answer(current_timestamp)
-            homework = check_response(api_answer)
+            response = get_api_answer(current_timestamp)
+            homework = check_response(response)
             message = parse_status(homework)
             if message != status:
                 send_message(bot, message)
