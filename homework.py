@@ -1,5 +1,5 @@
 import os
-import time
+import datetime
 import telegram
 import requests
 import logging
@@ -40,15 +40,18 @@ def send_message(bot, message):
             'Бот успешно отправил сообщение '
             + message + ' в чат ' + TELEGRAM_CHAT_ID
         )
-    except Exception as error:
+    except telegram.error.TelegramError as error:
         logging.error(f'Сбой при отправке сообщения в Telegram: {error}')
 
 
 def get_api_answer(current_timestamp):
     """Проверяем ответ API."""
-    timestamp = current_timestamp or int(time.time())
-    params = {'from_date': timestamp}
-    response = requests.get(ENDPOINT, headers=HEADERS, params=params)
+    try:
+        timestamp = current_timestamp or int(datetime.time())
+        params = {'from_date': timestamp}
+        response = requests.get(ENDPOINT, headers=HEADERS, params=params)
+    except requests.RequestException as error:
+        message = f'Сайт не отвечает {error}'
     if response.status_code != 200:
         message = f'Ошибочный статус ответа по API: {response.status_code}'
         raise exceptions.CheckResponseStatusException(message)
@@ -65,14 +68,20 @@ def check_response(response):
     if not isinstance(homeworks, list):
         raise TypeError('Тип не список.')
     if not homeworks:
-        error = f'Список {homeworks[0]} пуст'
+        error = f'Список {homeworks} пуст'
         raise exceptions.EmptyValueException(error)
-    logging.info('Status of homework update')
+    logging.info('Статус домашней работы.')
     return homeworks
 
 
 def parse_status(homework):
     """Проверка статуса домашней работы."""
+    if not isinstance(homework, dict):
+        raise TypeError('Тип не словарь.')
+    if 'homework_name' not in homework:
+        raise KeyError('Ключ не найден.')
+    if 'status' not in homework:
+        raise KeyError('Ключ не найден.')
     homework_name = homework['homework_name']
     homework_status = homework['status']
     if homework_status not in HOMEWORK_STATUSES:
@@ -81,13 +90,13 @@ def parse_status(homework):
             f'обнаруженный в ответе API: {homework_status}.'
         )
         raise exceptions.UnknownStatusException(error)
-    if not homework_name:
+    if homework_name is None:
         error = (
             f'Нет такого имени в списке {homework_name}'
         )
         raise exceptions.UnknownNameException(error)
-    verdict = HOMEWORK_STATUSES.get(homework_status)
-    logging.info('New status received')
+    verdict = homework_status
+    logging.info('Получен новый статус.')
     return f'Изменился статус проверки работы "{homework_name}". {verdict}'
 
 
@@ -119,9 +128,9 @@ def main():
     if not check_tokens():
         error = 'Необходимые переменные отсутствуют.'
         logging.error(error, exc_info=True)
-        sys.exit()
+        sys.exit(1)
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
-    current_timestamp = int(time.time() - 30 * 24 * 60 * 60)
+    current_timestamp = int(datetime.timedelta() - 30 * 24 * 60 * 60)
     status = ''
     while True:
         try:
@@ -132,13 +141,12 @@ def main():
                 send_message(bot, message)
                 status = message
             current_timestamp = current_timestamp
-            time.sleep(RETRY_TIME)
+            datetime.sleep(RETRY_TIME)
         except Exception as error:
             message = f'Сбой в работе программы: {error}'
             logging.error(f'Ошибка при запросе к основному API: {error}')
-            time.sleep(RETRY_TIME)
         finally:
-            time.sleep(RETRY_TIME)
+            datetime.sleep(RETRY_TIME)
 
 
 if __name__ == '__main__':
