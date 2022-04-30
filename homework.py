@@ -95,7 +95,7 @@ def parse_status(homework):
             f'Нет такого имени в списке {homework_name}'
         )
         raise exceptions.UnknownNameException(error)
-    verdict = homework_status
+    verdict = HOMEWORK_STATUSES[homework_status]
     logging.info('Получен новый статус.')
     return f'Изменился статус проверки работы "{homework_name}". {verdict}'
 
@@ -130,7 +130,7 @@ def main():
         logging.error(error, exc_info=True)
         sys.exit(1)
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
-    current_timestamp = int(datetime.timedelta() - 30 * 24 * 60 * 60)
+    current_timestamp = int(datetime.timedelta.now())
     status = ''
     while True:
         try:
