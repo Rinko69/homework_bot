@@ -18,3 +18,5 @@ class UnknownNameException(Exception):
     pass
 
 
+class ConnectionErrorException(Exception):
+    pass

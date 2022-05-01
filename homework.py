@@ -1,11 +1,11 @@
 import os
-import datetime
 import telegram
 import requests
 import logging
 import sys
 
 from dotenv import load_dotenv
+from datetime import timedelta, datetime, time
 import exceptions
 
 
@@ -37,8 +37,8 @@ def send_message(bot, message):
     try:
         bot.send_message(TELEGRAM_CHAT_ID, message)
         logging.info(
-            'Бот успешно отправил сообщение '
-            + message + ' в чат ' + TELEGRAM_CHAT_ID
+            f'Бот успешно отправил сообщение'
+            f' {message} в чат {TELEGRAM_CHAT_ID}'
         )
     except telegram.error.TelegramError as error:
         logging.error(f'Сбой при отправке сообщения в Telegram: {error}')
@@ -52,6 +52,7 @@ def get_api_answer(current_timestamp):
         response = requests.get(ENDPOINT, headers=HEADERS, params=params)
     except requests.RequestException as error:
         message = f'Сайт не отвечает {error}'
+        raise exceptions.ConnectionErrorException(message)
     if response.status_code != 200:
         message = f'Ошибочный статус ответа по API: {response.status_code}'
         raise exceptions.CheckResponseStatusException(message)
@@ -64,7 +65,7 @@ def check_response(response):
         raise TypeError('Тип не словарь.')
     homeworks = response['homeworks']
     if 'homeworks' not in response:
-        raise KeyError('Ключ не найден.')
+        raise KeyError(f'Ключ "{homeworks}" не найден.')
     if not isinstance(homeworks, list):
         raise TypeError('Тип не список.')
     if not homeworks:
@@ -76,14 +77,15 @@ def check_response(response):
 
 def parse_status(homework):
     """Проверка статуса домашней работы."""
+    print(homework)
     if not isinstance(homework, dict):
         raise TypeError('Тип не словарь.')
-    if 'homework_name' not in homework:
-        raise KeyError('Ключ не найден.')
-    if 'status' not in homework:
-        raise KeyError('Ключ не найден.')
     homework_name = homework['homework_name']
+    if 'homework_name' not in homework:
+        raise KeyError(f'Ключ "{homework_name}" не найден.')
     homework_status = homework['status']
+    if 'status' not in homework:
+        raise KeyError(f'Ключ "{homework_status}" не найден.')
     if homework_status not in HOMEWORK_STATUSES:
         error = (
             f'Недокументированный статус домашней работы,'
@@ -107,13 +109,11 @@ def check_tokens():
             'Отсутствует обязательная переменная: PRACTICUM_TOKEN.'
             'Программа принудительно остановлена.'
         )
-        return False
     if not TELEGRAM_TOKEN:
         logging.critical(
             'Отсутствует обязательная переменная: TELEGRAM_TOKEN.'
             'Программа принудительно остановлена.'
         )
-        return False
     if not TELEGRAM_CHAT_ID:
         logging.critical(
             'Отсутствует обязательная переменная: TELEGRAM_CHAT_ID.'
@@ -130,8 +130,8 @@ def main():
         logging.error(error, exc_info=True)
         sys.exit(1)
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
-    current_timestamp = int(datetime.timedelta.now())
-    status = ''
+    current_timestamp = datetime.now() - timedelta(seconds=1549962000)
+    status = None
     while True:
         try:
             response = get_api_answer(current_timestamp)
@@ -141,12 +141,12 @@ def main():
                 send_message(bot, message)
                 status = message
             current_timestamp = current_timestamp
-            datetime.sleep(RETRY_TIME)
+            time.sleep(RETRY_TIME)
         except Exception as error:
             message = f'Сбой в работе программы: {error}'
-            logging.error(f'Ошибка при запросе к основному API: {error}')
+            logging.exception(f'Ошибка при запросе к основному API: {error}')
         finally:
-            datetime.sleep(RETRY_TIME)
+            time.sleep(RETRY_TIME)
 
 
 if __name__ == '__main__':
